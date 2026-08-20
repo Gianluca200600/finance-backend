@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AccountsModule } from './accounts/accounts.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AppService } from './app.service';
       autoLoadEntities: true,
       synchronize: true, // Set to false in production. True is fine for local rapid prototyping.
     }),
+    AccountsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
