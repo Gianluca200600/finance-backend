@@ -4,7 +4,6 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
-
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
@@ -12,14 +11,23 @@ export class CategoriesController {
     return this.categoriesService.create(createCategoryDto);
   }
 
+  @Post('seed')
+  seed() {
+    return this.categoriesService.seedDefaultCategories();
+  }
+
   @Get()
   findAll() {
     return this.categoriesService.findAll();
   }
 
+  @Get('tree')
+  findTree() {
+    return this.categoriesService.findCategoryTree();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
-    // Ensuring the UUID remains a string
     return this.categoriesService.findOne(id);
   }
 
@@ -27,5 +35,4 @@ export class CategoriesController {
   remove(@Param('id') id: string) {
     return this.categoriesService.remove(id);
   }
-  
 }

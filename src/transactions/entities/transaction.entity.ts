@@ -17,7 +17,7 @@ export class Transaction {
     @Column({ type: 'timestamp' })
     date!: Date;
 
-    @Column({ nullable: true })
+    @Column({ type: 'varchar', nullable: true })
     description!: string | null;
 
 

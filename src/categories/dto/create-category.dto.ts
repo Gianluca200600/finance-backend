@@ -1,9 +1,9 @@
 export class CreateCategoryDto {
 
-    name!: string;
-
-    type!: string;
-
-    target_percent!: number;
-
+  name!: string;
+  color?: string;
+  icon?: string;
+  target_percent?: number;
+  parentId?: string | null;
+  
 }

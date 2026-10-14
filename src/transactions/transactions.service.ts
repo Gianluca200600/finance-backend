@@ -83,10 +83,21 @@ export class TransactionsService {
       });
       const savedTransaction = await queryRunner.manager.save(transaction);
 
-      // Commit the transaction
+      let splitSummary: { category: string; allocated: number }[] | null = null;
+      if (type === 'income') {
+        const categories = await queryRunner.manager.find(Category);
+        splitSummary = categories.map((cat) => ({
+          category: cat.name,
+          allocated: Number(((transactionAmount * Number(cat.target_percent)) / 100).toFixed(2)),
+        }));
+      }
+
       await queryRunner.commitTransaction();
 
-      return savedTransaction;
+      return {
+        ...savedTransaction,
+        pocketSplit: splitSummary,
+      };
 
     } catch (error) {
 
@@ -119,6 +130,22 @@ export class TransactionsService {
     
     await this.transactionsRepository.delete(id);
   
+  }
+
+  // Calculate the Pocket Split based on the provided income amount 
+  // and the target percentages of each category
+  async calculatePocketSplit(incomeAmount: number) {
+    const categories = await this.categoriesRepository.find();
+    return categories.map((category) => {
+      const percentage = Number(category.target_percent);
+      const allocatedAmount = (incomeAmount * percentage) / 100;
+      return {
+        categoryId: category.id,
+        categoryName: category.name,
+        percentage,
+        allocatedAmount: Number(allocatedAmount.toFixed(2)),
+      };
+    });
   }
 
 }
