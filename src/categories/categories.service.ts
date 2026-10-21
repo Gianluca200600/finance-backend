@@ -58,6 +58,14 @@ export class CategoriesService {
     await this.categoriesRepository.delete(id);
   }
 
+  async updateTargets(targets: { id: string; target_percent: number }[]): Promise<void> {
+  for (const item of targets) {
+    await this.categoriesRepository.update(item.id, {
+      target_percent: item.target_percent,
+    });
+  }
+}
+
   async seedDefaultCategories(): Promise<{ message: string; count: number }> {
     
     const defaultData = [

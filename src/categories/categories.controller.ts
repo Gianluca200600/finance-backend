@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Patch } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 
@@ -14,6 +14,11 @@ export class CategoriesController {
   @Post('seed')
   seed() {
     return this.categoriesService.seedDefaultCategories();
+  }
+
+  @Patch('targets')
+  updateTargets(@Body() targets: { id: string; target_percent: number }[]) {
+    return this.categoriesService.updateTargets(targets);
   }
 
   @Get()
