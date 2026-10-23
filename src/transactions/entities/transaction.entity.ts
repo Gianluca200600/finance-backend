@@ -23,7 +23,7 @@ export class Transaction {
 
     // RELATIONS
     @ManyToOne(
-        () => Account, {eager: true, onDelete: 'CASCADE' }
+        () => Account, { eager: true, onDelete: 'CASCADE' }
     )
     @JoinColumn(
         { name: 'account_id' }
@@ -31,7 +31,15 @@ export class Transaction {
     account!: Account;
 
     @ManyToOne(
-        () => Category, {eager: true, onDelete: 'SET NULL', nullable: true }
+        () => Account, { eager: true, nullable: true, onDelete: 'SET NULL' }
+    )
+    @JoinColumn(
+        { name: 'to_account_id' }
+    )
+    toAccount!: Account | null;
+
+    @ManyToOne(
+        () => Category, { eager: true, onDelete: 'SET NULL', nullable: true }
     )
     @JoinColumn(
         { name: 'category_id' }

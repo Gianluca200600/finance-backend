@@ -4,7 +4,14 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+
+  constructor(private readonly categoriesService: CategoriesService) { }
+
+  @Patch('targets')
+  async updateTargets(@Body() targets: { id: string; target_percent: number }[]) {
+    await this.categoriesService.updateTargets(targets);
+    return { success: true };
+  }
 
   @Post()
   create(@Body() createCategoryDto: CreateCategoryDto) {
@@ -14,11 +21,6 @@ export class CategoriesController {
   @Post('seed')
   seed() {
     return this.categoriesService.seedDefaultCategories();
-  }
-
-  @Patch('targets')
-  updateTargets(@Body() targets: { id: string; target_percent: number }[]) {
-    return this.categoriesService.updateTargets(targets);
   }
 
   @Get()
@@ -40,4 +42,5 @@ export class CategoriesController {
   remove(@Param('id') id: string) {
     return this.categoriesService.remove(id);
   }
+
 }

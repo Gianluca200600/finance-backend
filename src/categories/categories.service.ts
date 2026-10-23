@@ -6,11 +6,11 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 
 @Injectable()
 export class CategoriesService {
-  
+
   constructor(
     @InjectRepository(Category)
     private readonly categoriesRepository: Repository<Category>,
-  ) {}
+  ) { }
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
     const { parentId, ...rest } = createCategoryDto;
@@ -59,15 +59,17 @@ export class CategoriesService {
   }
 
   async updateTargets(targets: { id: string; target_percent: number }[]): Promise<void> {
-  for (const item of targets) {
-    await this.categoriesRepository.update(item.id, {
-      target_percent: item.target_percent,
-    });
+    if (!targets || !Array.isArray(targets)) return;
+
+    for (const item of targets) {
+      await this.categoriesRepository.update(item.id, {
+        target_percent: Number(item.target_percent) || 0,
+      });
+    }
   }
-}
 
   async seedDefaultCategories(): Promise<{ message: string; count: number }> {
-    
+
     const defaultData = [
       {
         name: 'Food',
@@ -178,4 +180,5 @@ export class CategoriesService {
 
     return { message: 'Categories seeded with individual icons', count: inserted };
   }
+  
 }

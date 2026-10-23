@@ -15,34 +15,28 @@ export class SubscriptionsService {
     private readonly accountsRepository: Repository<Account>,
     @InjectRepository(Category)
     private readonly categoriesRepository: Repository<Category>,
-  ) {}
+  ) { }
 
-  async create(createSubscriptionDto: CreateSubscriptionDto): Promise<Subscription> {
-    const { accountId, categoryId, ...rest } = createSubscriptionDto;
-
-    let account: Account | null = null;
-    if (accountId) {
-      account = await this.accountsRepository.findOne({ where: { id: accountId } });
-      if (!account) throw new NotFoundException(`Account with ID ${accountId} not found`);
-    }
-
-    let category: Category | null = null;
-    if (categoryId) {
-      category = await this.categoriesRepository.findOne({ where: { id: categoryId } });
-      if (!category) throw new NotFoundException(`Category with ID ${categoryId} not found`);
-    }
-
-    const subscription = this.subscriptionsRepository.create({
-      ...rest,
-      account,
-      category,
+  async create(dto: CreateSubscriptionDto): Promise<Subscription> {
+    const sub = this.subscriptionsRepository.create({
+      name: dto.name,
+      amount: dto.amount,
+      billingCycle: dto.billingCycle || 'monthly',
+      nextChargeDate: dto.nextChargeDate,
+      active: dto.active ?? true,
+      account: dto.accountId ? ({ id: dto.accountId } as any) : null,
+      category: dto.categoryId ? ({ id: dto.categoryId } as any) : null,
     });
-
-    return this.subscriptionsRepository.save(subscription);
+    return this.subscriptionsRepository.save(sub);
   }
 
   async findAll(): Promise<Subscription[]> {
-    return this.subscriptionsRepository.find();
+    return this.subscriptionsRepository.find({
+      relations: {
+        account: true,
+        category: true
+      }
+    });
   }
 
   async findOne(id: string): Promise<Subscription | null> {

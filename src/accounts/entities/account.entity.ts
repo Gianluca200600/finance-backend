@@ -24,7 +24,7 @@ export class Account {
 
     @Column(
         {
-            default: 'EURO'
+            default: 'EUR'
         }
     )
     currency!: string;
