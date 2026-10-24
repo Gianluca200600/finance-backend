@@ -108,121 +108,137 @@ export class TransactionsService {
   }
 
   async update(id: string, dto: UpdateTransactionDto): Promise<Transaction> {
-  const queryRunner = this.dataSource.createQueryRunner();
-  await queryRunner.connect();
-  await queryRunner.startTransaction();
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-  try {
-    const existingTx = await queryRunner.manager.findOne(Transaction, {
-      where: { id },
-      relations: ['account', 'toAccount', 'category'] as any,
-    });
+    try {
+      // Carica la transazione con tutte le relazioni
+      const existingTx = await queryRunner.manager.findOne(Transaction, {
+        where: { id },
+        relations: {
+          account: true,
+          toAccount: true,
+          category: true,
+        },
+      });
 
-    if (!existingTx) {
-      throw new NotFoundException(`Transazione ${id} non trovata`);
-    }
+      if (!existingTx) {
+        throw new NotFoundException(`Transazione ${id} non trovata`);
+      }
 
-    const oldAmount = Number(existingTx.amount);
-    const oldType = existingTx.type;
+      const oldAmount = Number(existingTx.amount);
+      const oldType = (existingTx.type || '').toLowerCase();
 
-    // remove old
-    const oldSourceAccount = await queryRunner.manager.findOne(Account, {
-      where: { id: existingTx.account.id },
-    });
+      // storno vecchi saldi
+      const oldSourceAccount = await queryRunner.manager.findOne(Account, {
+        where: { id: existingTx.account.id },
+      });
 
-    if (oldSourceAccount) {
-      if (oldType === 'expense') {
-        oldSourceAccount.balance = Number(oldSourceAccount.balance) + oldAmount;
-      } else if (oldType === 'income') {
-        oldSourceAccount.balance = Number(oldSourceAccount.balance) - oldAmount;
-      } else if (oldType === 'transfer') {
-        // Ripristina l'origine restituendo i fondi
-        oldSourceAccount.balance = Number(oldSourceAccount.balance) + oldAmount;
-        // Ripristina la destinazione togliendo i fondi
-        if (existingTx.toAccount) {
-          const oldDestAccount = await queryRunner.manager.findOne(Account, {
-            where: { id: existingTx.toAccount.id },
-          });
-          if (oldDestAccount) {
-            oldDestAccount.balance = Number(oldDestAccount.balance) - oldAmount;
-            await queryRunner.manager.save(oldDestAccount);
+      if (oldSourceAccount) {
+        if (oldType === 'expense') {
+          oldSourceAccount.balance = Number(oldSourceAccount.balance) + oldAmount;
+        } else if (oldType === 'income') {
+          oldSourceAccount.balance = Number(oldSourceAccount.balance) - oldAmount;
+        } else if (oldType === 'transfer') {
+          oldSourceAccount.balance = Number(oldSourceAccount.balance) + oldAmount;
+
+          if (existingTx.toAccount?.id) {
+            const oldDestAccount = await queryRunner.manager.findOne(Account, {
+              where: { id: existingTx.toAccount.id },
+            });
+            if (oldDestAccount) {
+              oldDestAccount.balance = Number(oldDestAccount.balance) - oldAmount;
+              await queryRunner.manager.save(oldDestAccount);
+            }
           }
         }
-      }
-      await queryRunner.manager.save(oldSourceAccount);
-    }
-
-    // find new
-    const newType = dto.type || existingTx.type;
-    const newAmount = dto.amount !== undefined ? Number(dto.amount) : oldAmount;
-    const targetAccountId = dto.accountId || existingTx.account.id;
-
-    // Recupera il conto di origine/principale aggiornato
-    const targetAccount = (targetAccountId === oldSourceAccount?.id)
-      ? oldSourceAccount
-      : await queryRunner.manager.findOne(Account, { where: { id: targetAccountId } });
-
-    if (!targetAccount) {
-      throw new NotFoundException('Conto principale non trovato');
-    }
-
-    let targetToAccount: Account | null = null;
-
-    // update correction
-    if (newType === 'expense') {
-      targetAccount.balance = Number(targetAccount.balance) - newAmount;
-    } else if (newType === 'income') {
-      targetAccount.balance = Number(targetAccount.balance) + newAmount;
-    } else if (newType === 'transfer') {
-      const targetToId = dto.toAccountId || existingTx.toAccount?.id;
-      if (!targetToId) {
-        throw new BadRequestException('Il conto di destinazione (toAccountId) è obbligatorio per i trasferimenti');
-      }
-      if (targetToId === targetAccount.id) {
-        throw new BadRequestException('Il conto di origine e di destinazione non possono coincidere');
+        await queryRunner.manager.save(oldSourceAccount);
       }
 
-      targetToAccount = await queryRunner.manager.findOne(Account, { where: { id: targetToId } });
-      if (!targetToAccount) {
-        throw new NotFoundException('Conto di destinazione non trovato');
+      // nuovi valori
+      const newType = (dto.type || existingTx.type).toLowerCase() as 'expense' | 'income' | 'transfer';
+      const newAmount = dto.amount !== undefined ? Number(dto.amount) : oldAmount;
+      const targetAccountId = dto.accountId || existingTx.account.id;
+
+      const targetAccount = (targetAccountId === oldSourceAccount?.id)
+        ? oldSourceAccount
+        : await queryRunner.manager.findOne(Account, { where: { id: targetAccountId } });
+
+      if (!targetAccount) {
+        throw new NotFoundException('Conto principale non trovato');
       }
 
-      // Addebito sul conto sorgente e accredito su quello ricevente
-      targetAccount.balance = Number(targetAccount.balance) - newAmount;
-      targetToAccount.balance = Number(targetToAccount.balance) + newAmount;
-      await queryRunner.manager.save(targetToAccount);
+      let targetToAccount: Account | null = null;
+
+      // nuovi saldi
+      if (newType === 'expense') {
+        targetAccount.balance = Number(targetAccount.balance) - newAmount;
+        await queryRunner.manager.save(targetAccount);
+      } else if (newType === 'income') {
+        targetAccount.balance = Number(targetAccount.balance) + newAmount;
+        await queryRunner.manager.save(targetAccount);
+      } else if (newType === 'transfer') {
+        const targetToId = dto.toAccountId || existingTx.toAccount?.id;
+        if (!targetToId) {
+          throw new BadRequestException('Seleziona il conto di destinazione per il trasferimento');
+        }
+        if (targetToId === targetAccount.id) {
+          throw new BadRequestException('Il conto di origine e destinazione non possono coincidere');
+        }
+
+        targetToAccount = await queryRunner.manager.findOne(Account, { where: { id: targetToId } });
+        if (!targetToAccount) {
+          throw new NotFoundException('Conto di destinazione non trovato');
+        }
+
+        targetAccount.balance = Number(targetAccount.balance) - newAmount;
+        targetToAccount.balance = Number(targetToAccount.balance) + newAmount;
+
+        await queryRunner.manager.save(targetAccount);
+        await queryRunner.manager.save(targetToAccount);
+      }
+
+      // gestione categoria
+      let category: Category | null = null;
+      if (newType !== 'transfer') {
+        if (dto.categoryId !== undefined) {
+          category = dto.categoryId
+            ? await queryRunner.manager.findOne(Category, { where: { id: dto.categoryId } })
+            : null;
+        } else {
+          category = existingTx.category;
+        }
+      }
+
+      // salva la transazione aggiornata
+      await queryRunner.manager.update(Transaction, id, {
+        amount: newAmount,
+        type: newType,
+        date: dto.date || existingTx.date,
+        description: dto.description !== undefined ? dto.description : existingTx.description,
+        account: { id: targetAccount.id } as any,
+        toAccount: newType === 'transfer' && targetToAccount ? ({ id: targetToAccount.id } as any) : null,
+        category: category ? ({ id: category.id } as any) : null,
+      });
+
+      await queryRunner.commitTransaction();
+
+      // Ritorna la transazione appena aggiornata
+      const result = await this.transactionsRepository.findOne({
+        where: { id },
+        relations: { account: true, toAccount: true, category: true },
+      });
+
+      return result!;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      console.error('ERRORE UPDATE TRANSAZIONE:', err);
+      throw err;
+    } finally {
+      await queryRunner.release();
     }
-    await queryRunner.manager.save(targetAccount);
-
-    // update category
-    let category = existingTx.category;
-    if (newType === 'transfer') {
-      category = null; // Nessuna categoria per i trasferimenti tra conti
-    } else if (dto.categoryId !== undefined) {
-      category = dto.categoryId
-        ? await queryRunner.manager.findOne(Category, { where: { id: dto.categoryId } })
-        : null;
-    }
-
-    // save correction
-    existingTx.amount = newAmount;
-    existingTx.type = newType;
-    if (dto.date) existingTx.date = dto.date;
-    if (dto.description !== undefined) existingTx.description = dto.description;
-    existingTx.account = targetAccount;
-    existingTx.toAccount = newType === 'transfer' ? targetToAccount : null;
-    existingTx.category = category;
-
-    const saved = await queryRunner.manager.save(existingTx);
-    await queryRunner.commitTransaction();
-    return saved;
-  } catch (err) {
-    await queryRunner.rollbackTransaction();
-    throw err;
-  } finally {
-    await queryRunner.release();
   }
-}
 
   async findAll(): Promise<Transaction[]> {
 
