@@ -80,36 +80,47 @@ export class AccountsService {
     const rawRows: { change_date: string; net_delta: string }[] =
       await this.accountsRepository.query(query, [accountId]);
 
+    const startDate = new Date();
+    if (range === '7D') startDate.setDate(startDate.getDate() - 7);
+    else if (range === '1M') startDate.setMonth(startDate.getMonth() - 1);
+    else if (range === '3M') startDate.setMonth(startDate.getMonth() - 3);
+    else if (range === '1Y') startDate.setFullYear(startDate.getFullYear() - 1);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const startStr = startDate.toISOString().split('T')[0];
+
     // 3. Se non ci sono movimenti nel periodo, restituisce estremi con saldo costante
     if (!rawRows || rawRows.length === 0) {
-      const startDate = new Date();
-      if (range === '7D') startDate.setDate(startDate.getDate() - 7);
-      else if (range === '1M') startDate.setMonth(startDate.getMonth() - 1);
-      else if (range === '3M') startDate.setMonth(startDate.getMonth() - 3);
-      else if (range === '1Y') startDate.setFullYear(startDate.getFullYear() - 1);
-
       return [
-        { date: startDate.toISOString().split('T')[0], balance: currentBal },
-        { date: new Date().toISOString().split('T')[0], balance: currentBal },
+        { date: startStr, balance: currentBal },
+        { date: todayStr, balance: currentBal },
       ];
     }
 
     // 4. Ricostruzione del saldo progressivo a ritroso
     let running = currentBal;
     const points: { date: string; balance: number }[] = [
-      { date: new Date().toISOString().split('T')[0], balance: running }
+      { date: todayStr, balance: running }
     ];
 
     for (const row of rawRows) {
+      const rowDate = new Date(row.change_date).toISOString().split('T')[0];
+      if (rowDate !== todayStr) {
+        points.push({
+          date: rowDate,
+          balance: Math.round(running * 100) / 100,
+        });
+      }
       const delta = Number(row.net_delta || 0);
       running -= delta;
-      points.push({
-        date: new Date(row.change_date).toISOString().split('T')[0],
-        balance: Math.round(running * 100) / 100,
-      });
     }
 
-    return points.reverse();
+    points.push({
+      date: startStr,
+      balance: Math.round(running * 100) / 100,
+    });
+
+    return points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 
 }
