@@ -98,7 +98,6 @@ export class CategoriesService {
           { name: 'Software', icon: 'code' },              // 💾 app/software
           { name: 'Hobbies', icon: 'palette' },            // 🎨 passioni/tempo libero
           { name: 'Holiday', icon: 'palmtree' },           // 🌴 vacanze/viaggi
-          { name: 'Gift', icon: 'gift'}                    // 🎁 regali
         ],
       },
       {
@@ -154,6 +153,7 @@ export class CategoriesService {
           { name: 'Christmas', icon: 'tree' },             // 🎄 natale
           { name: 'Love', icon: 'heart' },                 // ❤️ amore
           { name: 'Anniversary', icon: 'ring' },           // 💍 anniversario
+          { name: 'Party', icon: 'balloon' },             // 🎈 feste/eventi
           { name: 'Other', icon: 'gift' },                 // 🎁 altri regali
         ]
       }
