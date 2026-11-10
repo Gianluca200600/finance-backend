@@ -98,6 +98,7 @@ export class CategoriesService {
           { name: 'Software', icon: 'code' },              // 💾 app/software
           { name: 'Hobbies', icon: 'palette' },            // 🎨 passioni/tempo libero
           { name: 'Holiday', icon: 'palmtree' },           // 🌴 vacanze/viaggi
+          { name: 'Gift', icon: 'gift'}                    // 🎁 regali
         ],
       },
       {
@@ -129,14 +130,6 @@ export class CategoriesService {
         ],
       },
       {
-        name: 'Gifts',
-        color: '#DED337',
-        icon: 'gift', // 🎁 Macro Gifts
-        subs: [
-          { name: 'Gifts', icon: 'gift' },                 // 🎁 regali
-        ],
-      },
-      {
         name: 'Financial',
         color: '#9A2EF2',
         icon: 'wallet', // 💰 Macro Financial
@@ -152,6 +145,18 @@ export class CategoriesService {
           { name: 'Sale', icon: 'tag' },                   // 🏷️ vendite private
         ],
       },
+      {
+        name: 'Gifts',
+        color: '#F2E22E',
+        icon: 'gift', // 🎁 Macro Gifts
+        subs: [
+          { name: 'Birthday', icon: 'birthday-cake' },     // 🎂 compleanno
+          { name: 'Christmas', icon: 'tree' },             // 🎄 natale
+          { name: 'Love', icon: 'heart' },                 // ❤️ amore
+          { name: 'Anniversary', icon: 'ring' },           // 💍 anniversario
+          { name: 'Other', icon: 'gift' },                 // 🎁 altri regali
+        ]
+      }
     ];
 
     let inserted = 0;
