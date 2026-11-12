@@ -43,7 +43,14 @@ export class SubscriptionsService {
     return this.subscriptionsRepository.findOne({ where: { id } });
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string): Promise<{ deleted: true; id: string }> {
+    const existing = await this.subscriptionsRepository.findOne({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Piano ricorrente con ID ${id} non trovato`);
+    }
+
     await this.subscriptionsRepository.delete(id);
+    return { deleted: true, id };
   }
+  
 }
