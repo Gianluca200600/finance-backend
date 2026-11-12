@@ -246,18 +246,80 @@ export class TransactionsService {
 
   }
 
-  // Changed id from number to string
   async findOne(id: string): Promise<Transaction | null> {
 
     return this.transactionsRepository.findOne({ where: { id } });
 
   }
 
-  // Changed id from number to string
-  async remove(id: string): Promise<void> {
+  async remove(id: string): Promise<{ deleted: true; id: string }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    await this.transactionsRepository.delete(id);
+    try {
+      // 1. Recupera la transazione con i conti coinvolti
+      const existingTx = await queryRunner.manager.findOne(Transaction, {
+        where: { id },
+        relations: {
+          account: true,
+          toAccount: true,
+        },
+      });
 
+      if (!existingTx) {
+        throw new NotFoundException(`Transaction with ID ${id} was not found`);
+      }
+
+      const amount = Number(existingTx.amount);
+      const type = (existingTx.type || '').toLowerCase();
+
+      // 2. Storno del saldo sul conto principale (origine)
+      if (existingTx.account?.id) {
+        const sourceAccount = await queryRunner.manager.findOne(Account, {
+          where: { id: existingTx.account.id },
+        });
+
+        if (sourceAccount) {
+          if (type === 'expense') {
+            // Era un'uscita -> restituisce i soldi al conto
+            sourceAccount.balance = Number(sourceAccount.balance) + amount;
+          } else if (type === 'income') {
+            // Era un'entrata -> sottrae i soldi dal conto
+            sourceAccount.balance = Number(sourceAccount.balance) - amount;
+          } else if (type === 'transfer') {
+            // Era un giroconto -> restituisce i soldi al conto di origine
+            sourceAccount.balance = Number(sourceAccount.balance) + amount;
+          }
+
+          await queryRunner.manager.save(sourceAccount);
+        }
+      }
+
+      // 3. Se era un transfer, storna anche il conto di destinazione
+      if (type === 'transfer' && existingTx.toAccount?.id) {
+        const destAccount = await queryRunner.manager.findOne(Account, {
+          where: { id: existingTx.toAccount.id },
+        });
+
+        if (destAccount) {
+          destAccount.balance = Number(destAccount.balance) - amount;
+          await queryRunner.manager.save(destAccount);
+        }
+      }
+
+      // 4. Elimina definitivamente il record della transazione
+      await queryRunner.manager.delete(Transaction, { id });
+
+      await queryRunner.commitTransaction();
+      return { deleted: true, id };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      console.error('ERROR IN DELETING TRANSACTION:', err);
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async calculatePocketSplit(incomeAmount: number) {
